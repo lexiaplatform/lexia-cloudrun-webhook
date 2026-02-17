@@ -1,0 +1,29 @@
+# Cloud Run container for WhatsApp webhook (Node/Express + TS build)
+FROM node:20-slim
+
+WORKDIR /app
+
+# Enable pnpm via Corepack
+RUN corepack enable
+
+# Install deps first (better layer cache)
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# Copy source
+COPY server ./server
+COPY shared ./shared
+COPY drizzle ./drizzle
+COPY tsconfig.json ./
+COPY drizzle.config.ts ./
+# If your server imports anything else, add it here.
+
+# Build only the webhook bundle
+RUN pnpm webhook:build
+
+ENV NODE_ENV=production
+ENV PORT=8080
+
+EXPOSE 8080
+
+CMD ["node", "dist/webhook.js"]

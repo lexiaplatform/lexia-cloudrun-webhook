@@ -1,0 +1,54 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+.pnpm-store/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+build/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Logs
+logs/
+*.log
+
+# Misc
+.cache/
+.turbo/
+coverage/
+.nyc_output/
+
+# Credentials
+*.pem
+*.key
+*.json (service account)
+service-account*.json
+
+# OS
+.DS_Store
+Thumbs.db

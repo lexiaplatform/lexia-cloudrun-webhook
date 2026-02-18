@@ -14,11 +14,16 @@
     "webhook:dev": "NODE_ENV=development tsx watch server/webhook.ts",
     "webhook:build": "esbuild server/webhook.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "webhook:start": "NODE_ENV=production node dist/webhook.js",
+    "worker:dev": "NODE_ENV=development tsx watch server/worker.ts",
+    "worker:build": "esbuild server/worker.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "worker:start": "NODE_ENV=production node dist/worker.js",
     "asaas-webhook-start": "node asaas_webhook.js"
   },
   "dependencies": {
     "axios": "^1.6.8",
     "body-parser": "^1.20.2",
+    "bullmq": "^5.11.4",
+    "ioredis": "^5.4.1",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "@aws-sdk/client-s3": "^3.693.0",

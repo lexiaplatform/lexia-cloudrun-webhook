@@ -42,6 +42,27 @@ export async function saveMessage(data: InsertMessage): Promise<boolean> {
 }
 
 /**
+ * Verificar se uma mensagem já foi processada (idempotência)
+ */
+export async function findMessageByMessageId(messageId: string) {
+  try {
+    const db = await getDb();
+    if (!db) return null;
+
+    const result = await db
+      .select()
+      .from(messages)
+      .where((msg) => msg.messageId === messageId)
+      .limit(1);
+
+    return result[0] || null;
+  } catch (error) {
+    console.error("[Database] Error finding message by messageId:", error);
+    return null;
+  }
+}
+
+/**
  * Obter mensagens de uma conversa
  */
 export async function getConversationMessages(phoneNumber: string, limit = 50) {
@@ -232,6 +253,40 @@ export async function saveWebhookLog(data: InsertWebhookLog): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("[Database] Error saving webhook log:", error);
+    return false;
+  }
+}
+
+/**
+ * Atualizar mensagem após processamento pelo agente
+ */
+export async function updateMessagePostProcessing(
+  messageId: string,
+  agentResponse: string,
+  status: "completed" | "failed",
+  errorMessage?: string
+): Promise<boolean> {
+  try {
+    const db = await getDb();
+    if (!db) {
+      console.warn("[Database] Cannot update message: database not available");
+      return false;
+    }
+
+    await db
+      .update(messages)
+      .set({
+        agentResponse,
+        processingStatus: status,
+        errorMessage: errorMessage || null,
+        processedAt: new Date(),
+      })
+      .where((msg) => msg.messageId === messageId);
+
+    console.log(`[Database] Message updated post-processing: ${messageId}`);
+    return true;
+  } catch (error) {
+    console.error("[Database] Error updating message post-processing:", error);
     return false;
   }
 }

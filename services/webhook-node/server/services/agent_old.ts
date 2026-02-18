@@ -1,33 +1,25 @@
+import { invokeLLM, Message, Tool } from "../_core/llm";
 import { getAsaasService } from "./asaas";
 import { getInfosimplesService } from "./infosimples";
 import { getDb } from "../db";
-import { conversations, messages as dbMessages, transactions } from "../../drizzle/schema";
+import { conversations, messages as dbMessages } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
 
 /**
- * Léxia Agent Service - EXPANDIDO
- * Centraliza a lógica do agente, persona e ferramentas com RAG local
+ * Léxia Agent Service
+ * Centraliza a lógica do agente, persona e ferramentas
  */
 
 const AGENT_INSTRUCTION = `
 Você é a LIA (Lexia), assistente oficial da Léxia.
-
-OBJETIVO PRINCIPAL: Convencer o cliente de maneira delicada e imperceptível a pagar a taxa de R$14,90 pela análise de cadastro.
 
 FUNIL (sempre):
 1) Comece mostrando pelo menos 3 veículos disponíveis (nome + preço semanal + 1 linha).
 2) Faça 1 pergunta por vez para recomendar a melhor opção (cidade, data de início, uso).
 3) Peça o CPF em algum momento dizendo que é para calcular a melhor proposta e avançar na reserva.
 4) Antes de pedir QUALQUER documento: para reservar e iniciar o cadastro, informe a taxa única de R$ 14,90 e pergunte se pode enviar o link de pagamento.
-   - Use linguagem natural e delicada: "Para garantir que você tenha a melhor proposta e avançar com segurança, precisamos fazer uma análise rápida. Isso custa apenas R$ 14,90 (taxa única). Posso enviar o link?"
-   - Nunca pareça que está "cobrando", mas sim oferecendo um serviço de proteção/análise.
 5) Ao confirmar pagamento (via webhook Asaas), execute as consultas de background usando run_infosimples_checks.
 6) Só depois disso, continue o cadastro e solicite documentos se necessário.
-
-CONTEXTO DO CLIENTE (use as ferramentas para obter):
-- Se o cliente já tem CPF cadastrado, mencione isso de forma natural
-- Se já tem histórico de pagamentos, use isso como prova de confiança
-- Se é primeira vez, seja mais acolhedor e explique os benefícios
 
 Contatos oficiais (sempre que conveniente):
 - Site: https://lexiaveiculos.com.br
@@ -39,8 +31,7 @@ Regras:
 - Faça perguntas curtas, uma por vez.
 - Não invente informações: se algo não estiver disponível, diga o que precisa.
 - Sempre que o cliente demonstrar intenção de fechar, pedir ajuda humana, estiver com dúvida sobre pagamento/documentos, ou houver travamento na conversa, ofereça o WhatsApp e envie o link clicável.
-- Se o cliente pedir "falar com atendente", envie imediatamente o link do WhatsApp.
-- Use os dados do cliente (CPF, histórico de pagamentos) para personalizar a conversa e aumentar confiança.
+- Se o cliente pedir “falar com atendente”, envie imediatamente o link do WhatsApp.
 `;
 
 const TOOLS: Tool[] = [
@@ -99,34 +90,6 @@ const TOOLS: Tool[] = [
         required: ["cpf", "infosimples_data"]
       }
     }
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_customer_status",
-      description: "Verifica se um cliente já tem CPF cadastrado ou qual o status da sua conversa (RAG local)",
-      parameters: {
-        type: "object",
-        properties: {
-          phoneNumber: { type: "string", description: "Número de telefone do cliente" }
-        },
-        required: ["phoneNumber"]
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_payment_history",
-      description: "Consulta o histórico de transações de um cliente para confirmar pagamentos (RAG local)",
-      parameters: {
-        type: "object",
-        properties: {
-          phoneNumber: { type: "string", description: "Número de telefone do cliente" }
-        },
-        required: ["phoneNumber"]
-      }
-    }
   }
 ];
 
@@ -137,13 +100,13 @@ export class AgentService {
   async processMessage(sessionId: string, text: string, phoneNumber: string) {
     const db = await getDb();
     
-    // 1. Obter histórico da conversa (aumentado para 20 mensagens)
+    // 1. Obter histórico da conversa
     const history = await db
       .select()
       .from(dbMessages)
       .where(eq(dbMessages.from, phoneNumber))
       .orderBy(desc(dbMessages.createdAt))
-      .limit(20);
+      .limit(10);
 
     const messages: Message[] = [
       { role: "system", content: AGENT_INSTRUCTION },
@@ -185,12 +148,6 @@ export class AgentService {
             };
           } else if (toolCall.function.name === "build_customer_report") {
             toolResult = this.buildCustomerReport(args.cpf, args.infosimples_data);
-          } else if (toolCall.function.name === "get_customer_status") {
-            // Nova ferramenta: Consultar status do cliente no BD
-            toolResult = await this.getCustomerStatus(args.phoneNumber);
-          } else if (toolCall.function.name === "get_payment_history") {
-            // Nova ferramenta: Consultar histórico de pagamentos
-            toolResult = await this.getPaymentHistory(args.phoneNumber);
           }
         } catch (error: any) {
           toolResult = { error: error.message };
@@ -236,95 +193,23 @@ export class AgentService {
     ];
   }
 
-  /**
-   * Consultar status do cliente no banco de dados (RAG Local)
-   */
-  private async getCustomerStatus(phoneNumber: string) {
-    try {
-      const db = await getDb();
-      const conversation = await db
-        .select()
-        .from(conversations)
-        .where(eq(conversations.phoneNumber, phoneNumber))
-        .limit(1);
-
-      if (conversation.length === 0) {
-        return {
-          status: "new_customer",
-          message: "Cliente novo, sem histórico no sistema"
-        };
-      }
-
-      const conv = conversation[0];
-      return {
-        status: "existing_customer",
-        cpf: conv.cpf || "Não cadastrado",
-        conversationStatus: conv.status,
-        lastMessageAt: conv.lastMessageAt,
-        asaasCustomerId: conv.asaasCustomerId || "Não vinculado",
-        message: `Cliente existente. CPF: ${conv.cpf ? "Cadastrado" : "Não cadastrado"}. Status: ${conv.status}`
-      };
-    } catch (error) {
-      return { error: "Erro ao consultar status do cliente" };
-    }
-  }
-
-  /**
-   * Consultar histórico de pagamentos do cliente (RAG Local)
-   */
-  private async getPaymentHistory(phoneNumber: string) {
-    try {
-      const db = await getDb();
-      const paymentHistory = await db
-        .select()
-        .from(transactions)
-        .where(eq(transactions.phoneNumber, phoneNumber))
-        .orderBy(desc(transactions.createdAt))
-        .limit(5);
-
-      if (paymentHistory.length === 0) {
-        return {
-          status: "no_transactions",
-          message: "Nenhuma transação encontrada para este cliente"
-        };
-      }
-
-      const confirmedPayments = paymentHistory.filter(t => t.status === "confirmed");
-      const totalPaid = confirmedPayments.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0);
-
-      return {
-        status: "has_transactions",
-        totalTransactions: paymentHistory.length,
-        confirmedPayments: confirmedPayments.length,
-        totalPaid: totalPaid.toFixed(2),
-        lastPaymentAt: paymentHistory[0]?.createdAt,
-        transactions: paymentHistory.map(t => ({
-          amount: t.amount,
-          status: t.status,
-          date: t.createdAt
-        })),
-        message: `Cliente tem ${confirmedPayments.length} pagamentos confirmados. Total pago: R$ ${totalPaid.toFixed(2)}`
-      };
-    } catch (error) {
-      return { error: "Erro ao consultar histórico de pagamentos" };
-    }
-  }
-
   private buildCustomerReport(cpf: string, data: any) {
     const body = data.body || {};
     const endereco = body.endereco || {};
     
     let report = `📄 *Relatório de Validação — Pré-cadastro Léxia*\n`;
-    report += `\n✅ *Dados Validados com Sucesso*\n`;
-    report += `CPF: ${cpf}\n`;
-    report += `Nome: ${body.nome || "N/A"}\n`;
-    report += `Data de Nascimento: ${body.data_nascimento || "N/A"}\n`;
-    report += `Endereço: ${endereco.logradouro || "N/A"}, ${endereco.numero || "N/A"} - ${endereco.cidade || "N/A"}, ${endereco.estado || "N/A"}\n`;
-    report += `\n✅ *Status da Análise*\n`;
-    report += `Situação: Aprovado para próximas etapas\n`;
-    report += `Próximo passo: Envio de documentos\n`;
-    
-    return report;
+    report += `*CPF:* ${cpf}\n\n`;
+    report += `*1) Resumo*\n- *Situação geral:* apto\n\n`;
+    report += `*2) Dados encontrados*\n`;
+    report += `- *Nome:* ${body.nome || "—"}\n`;
+    report += `- *Data de nascimento:* ${body.data_nascimento || "—"}\n`;
+    report += `- *Endereço/UF:* ${endereco.municipio || "—"}/${endereco.uf || "—"}\n`;
+    report += `- *Situação fiscal:* ${body.situacao || "—"}\n\n`;
+    report += `*3) Confirmação*\n`;
+    report += `Você confirma que *nome, data de nascimento e endereço* acima estão corretos?\n`;
+    report += `Se tiver algo errado, me diga exatamente *qual item* e a correção.`;
+
+    return { report_text: report };
   }
 }
 

@@ -30,6 +30,14 @@ export const messages = mysqlTable(
     // Metadados do WhatsApp
     displayPhoneNumber: varchar("displayPhoneNumber", { length: 20 }),
     phoneNumberId: varchar("phoneNumberId", { length: 64 }),
+    // Resposta do agente (novo)
+    agentResponse: text("agentResponse"),
+    // Status do processamento: pending, processing, completed, failed
+    processingStatus: mysqlEnum("processingStatus", ["pending", "processing", "completed", "failed"]).default("pending"),
+    // Mensagem de erro se o processamento falhar
+    errorMessage: text("errorMessage"),
+    // Timestamp de quando foi processado
+    processedAt: timestamp("processedAt"),
     // Timestamps
     messageTimestamp: varchar("messageTimestamp", { length: 32 }).notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -92,6 +100,10 @@ export const conversations = mysqlTable(
     lastMessage: text("lastMessage"),
     // Timestamp da última mensagem
     lastMessageAt: timestamp("lastMessageAt"),
+    // CPF do cliente (para RAG e análise)
+    cpf: varchar("cpf", { length: 14 }),
+    // ID do cliente no Asaas
+    asaasCustomerId: varchar("asaasCustomerId", { length: 64 }),
     // Timestamps
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

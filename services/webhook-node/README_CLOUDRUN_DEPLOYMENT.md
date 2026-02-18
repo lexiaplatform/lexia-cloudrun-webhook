@@ -65,13 +65,11 @@ curl http://localhost:8080/health
 |----------|-----------|-------------|
 | `DATABASE_URL` | String de conexão MySQL (ex: `mysql://user:pass@host:3306/db`) | ✅ Sim |
 
-### Google Cloud / Vertex AI (Opcional)
 
 | Variável | Descrição | Obrigatória |
 |----------|-----------|-------------|
 | `GOOGLE_CLOUD_PROJECT` | ID do projeto Google Cloud | ❌ Não |
-| `GOOGLE_CLOUD_LOCATION` | Região do Google Cloud (ex: `us-central1`) | ❌ Não |
-| `AGENT_ID` | ID do agente Vertex AI | ❌ Não |
+| `GOOGLE_CLOUD_LOCATION` | Região do Google Cloud (ex: `southamerica-east1`) | ❌ Não |
 
 ### Server Configuration
 
@@ -93,10 +91,10 @@ docker build -t lexia-webhook:latest .
 ```bash
 docker run -p 8080:8080 \
   -e NODE_ENV=production \
-  -e VERIFY_TOKEN=seu_token \
-  -e WHATSAPP_ACCESS_TOKEN=seu_token \
+  -e VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN \
+  -e WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN \
   -e WHATSAPP_PHONE_NUMBER_ID=seu_id \
-  -e DATABASE_URL=mysql://user:pass@host:3306/db \
+  -e DATABASE_URL = REPLACE_WITH_DATABASE_URL \
   lexia-webhook:latest
 ```
 
@@ -124,16 +122,16 @@ gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/lexia-webhook:latest .
 gcloud run deploy lexia-webhook \
   --image gcr.io/YOUR_PROJECT_ID/lexia-webhook:latest \
   --platform managed \
-  --region us-central1 \
+  --region southamerica-east1 \
   --memory 512Mi \
   --cpu 1 \
   --timeout 300 \
   --set-env-vars NODE_ENV=production \
-  --set-env-vars VERIFY_TOKEN=seu_token \
-  --set-env-vars WHATSAPP_ACCESS_TOKEN=seu_token \
+  --set-env-vars VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN \
+  --set-env-vars WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN \
   --set-env-vars WHATSAPP_PHONE_NUMBER_ID=seu_id \
   --set-env-vars WHATSAPP_BUSINESS_ACCOUNT_ID=seu_id \
-  --set-env-vars DATABASE_URL=mysql://user:pass@host:3306/db \
+  --set-env-vars DATABASE_URL = REPLACE_WITH_DATABASE_URL \
   --allow-unauthenticated
 ```
 

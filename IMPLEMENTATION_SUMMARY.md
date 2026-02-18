@@ -4,8 +4,6 @@
 
 ### Fase 1: Limpeza de Redundâncias ✓
 - ❌ Deletado: `server/webhooks/whatsapp.ts` (webhook duplicado)
-- ❌ Deletado: `server/services/vertex-ai.ts` (serviço obsoleto)
-- ❌ Deletado: `server/routers/vertex-ai.ts` (router obsoleto)
 
 **Resultado:** Código limpo e centralizado. Toda a lógica de webhook está em `server/webhook.ts` e toda a lógica do agente está em `server/services/agent.ts`.
 
@@ -95,8 +93,6 @@ Webhook (Express) → Enfileira → BullMQ + Redis → Worker → Agente ADK →
 
 ### Deletados:
 - `server/webhooks/whatsapp.ts`
-- `server/services/vertex-ai.ts`
-- `server/routers/vertex-ai.ts`
 
 ---
 
@@ -111,11 +107,11 @@ pnpm install
 ### 2. Configurar Variáveis de Ambiente
 ```bash
 # .env
-REDIS_URL=redis://127.0.0.1:6379
-WHATSAPP_ACCESS_TOKEN=seu_token
+REDIS_URL = REPLACE_WITH_REDIS_URL
+WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN
 WHATSAPP_PHONE_NUMBER_ID=seu_id
 WHATSAPP_BUSINESS_ACCOUNT_ID=seu_id
-VERIFY_TOKEN=seu_token
+VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN
 ```
 
 ### 3. Executar Migrações do Banco de Dados

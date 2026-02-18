@@ -9,7 +9,7 @@ Guia completo para deployar o monorepo Léxia Platform com 3 serviços Cloud Run
 ## 📋 Pré-requisitos
 
 - ✅ Google Cloud Project: `lexia-platform-486621`
-- ✅ Cloud SQL PostgreSQL: `lexia-postgres` (us-central1)
+- ✅ Cloud SQL PostgreSQL: `lexia-postgres` (southamerica-east1)
 - ✅ Service Account com permissões
 - ✅ gcloud CLI configurado
 - ✅ Secrets no Secret Manager criados
@@ -43,12 +43,12 @@ gcloud run deploy lexia-whatsapp-webhook \
   --region southamerica-east1 \
   --allow-unauthenticated \
   --set-env-vars \
-    AGENT_URL=https://lexia-agent-adk-108902278293.southamerica-east1.run.app,\
+    AGENT_URL = REPLACE_WITH_AGENT_URL,\
     NODE_ENV=production,\
     PORT=8080 \
   --set-secrets \
-    VERIFY_TOKEN=VERIFY_TOKEN:latest,\
-    WHATSAPP_ACCESS_TOKEN=WHATSAPP_ACCESS_TOKEN:latest,\
+    VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN,\
+    WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN,\
     WHATSAPP_PHONE_NUMBER_ID=WHATSAPP_PHONE_NUMBER_ID:latest,\
     META_GRAPH_VERSION=META_GRAPH_VERSION:latest \
   --project=lexia-platform-486621
@@ -66,7 +66,7 @@ gcloud run deploy lexia-platform \
   --source services/portal \
   --region southamerica-east1 \
   --allow-unauthenticated \
-  --add-cloudsql-instances lexia-platform-486621:us-central1:lexia-postgres \
+  --add-cloudsql-instances lexia-platform-486621:southamerica-east1:lexia-postgres \
   --set-env-vars \
     NODE_ENV=production,\
     PORT=8080,\
@@ -74,15 +74,15 @@ gcloud run deploy lexia-platform \
     GOOGLE_CLOUD_LOCATION=global,\
     GOOGLE_GENAI_USE_VERTEXAI=true,\
     GEMINI_MODEL=gemini-2.5-pro,\
-    AGENT_URL=https://lexia-agent-adk-108902278293.southamerica-east1.run.app,\
+    AGENT_URL = REPLACE_WITH_AGENT_URL,\
     WHATSAPP_BUSINESS_ACCOUNT_ID=2793719140803043,\
     WHATSAPP_PHONE_NUMBER_ID=981763218354581,\
     META_GRAPH_VERSION=v18.0 \
   --set-secrets \
-    DATABASE_URL=DATABASE_URL:latest,\
-    VERIFY_TOKEN=VERIFY_TOKEN:latest,\
-    WHATSAPP_ACCESS_TOKEN=WHATSAPP_ACCESS_TOKEN:latest,\
-    JWT_SECRET=JWT_SECRET:latest \
+    DATABASE_URL = REPLACE_WITH_DATABASE_URL,\
+    VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN,\
+    WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN,\
+    JWT_SECRET = REPLACE_WITH_JWT_SECRET \
   --project=lexia-platform-486621
 ```
 
@@ -120,7 +120,7 @@ gcloud sql connect lexia-postgres --user=lexia_user
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 
 # DATABASE_URL
-echo -n "postgresql://lexia_user:LexiaSecure2026!@#@localhost/lexia?host=/cloudsql/lexia-platform-486621:us-central1:lexia-postgres" | \
+echo -n "postgresql://lexia_user:REPLACE_WITH_PASSWORD@localhost/lexia?host=/cloudsql/lexia-platform-486621:southamerica-east1:lexia-postgres" | \
   gcloud secrets versions add DATABASE_URL --data-file=- --project=lexia-platform-486621
 
 # WHATSAPP_ACCESS_TOKEN (IMPORTANTE: usar token real)
@@ -311,7 +311,7 @@ git push
 gcloud run deploy lexia-platform \
   --source services/portal \
   --region southamerica-east1 \
-  --add-cloudsql-instances lexia-platform-486621:us-central1:lexia-postgres \
+  --add-cloudsql-instances lexia-platform-486621:southamerica-east1:lexia-postgres \
   --project=lexia-platform-486621
 ```
 

@@ -9,8 +9,8 @@ import { updateMessagePostProcessing } from './db_messages';
  * Processa jobs da fila agentQueue e envia respostas via WhatsApp API
  */
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
-const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || '';
+const REDIS_URL = REPLACE_WITH_REDIS_URL || 'redis://127.0.0.1:6379';
+const WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN || '';
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
 
 const connection = new IORedis(REDIS_URL, {

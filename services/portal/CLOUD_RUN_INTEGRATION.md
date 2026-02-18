@@ -29,7 +29,6 @@ Este documento descreve como integrar o projeto unificado (Front + Back + DB) co
 │                           ↓                                  │
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  AGENT ADK (Python/FastAPI) - Cloud Run              │  │
-│  │  - Processamento com Gemini/Vertex AI                │  │
 │  │  - Responde mensagens                                │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                           ↓                                  │
@@ -51,7 +50,7 @@ Este documento descreve como integrar o projeto unificado (Front + Back + DB) co
 
 ```bash
 # .env
-DATABASE_URL=postgresql://lexia_user:LexiaSecure2026!@#@localhost/lexia?host=/cloudsql/lexia-platform-486621:us-central1:lexia-postgres
+DATABASE_URL = REPLACE_WITH_DATABASE_URL
 
 # Cloud Run: Use Cloud SQL Proxy
 # Configurar via --add-cloudsql-instances
@@ -67,15 +66,15 @@ GOOGLE_GENAI_USE_VERTEXAI=true
 GEMINI_MODEL=gemini-2.5-pro
 
 # Base URL do Agent ADK (SEM /chat)
-AGENT_URL=https://lexia-agent-adk-108902278293.southamerica-east1.run.app
+AGENT_URL = REPLACE_WITH_AGENT_URL
 ```
 
 ### 3. **WhatsApp Configuration**
 
 ```bash
 # .env
-VERIFY_TOKEN=lexia_verify_token_secure_2026
-WHATSAPP_ACCESS_TOKEN=<seu_token_real>  # Use Secret Manager em produção
+VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN
+WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN  # Use Secret Manager em produção
 WHATSAPP_BUSINESS_ACCOUNT_ID=2793719140803043
 WHATSAPP_PHONE_NUMBER_ID=981763218354581
 META_GRAPH_VERSION=v18.0
@@ -94,7 +93,7 @@ gcloud run deploy lexia-platform \
   --source . \
   --region southamerica-east1 \
   --allow-unauthenticated \
-  --add-cloudsql-instances lexia-platform-486621:us-central1:lexia-postgres \
+  --add-cloudsql-instances lexia-platform-486621:southamerica-east1:lexia-postgres \
   --set-env-vars \
     NODE_ENV=production,\
     PORT=8080,\
@@ -102,15 +101,15 @@ gcloud run deploy lexia-platform \
     GOOGLE_CLOUD_LOCATION=global,\
     GOOGLE_GENAI_USE_VERTEXAI=true,\
     GEMINI_MODEL=gemini-2.5-pro,\
-    AGENT_URL=https://lexia-agent-adk-108902278293.southamerica-east1.run.app,\
+    AGENT_URL = REPLACE_WITH_AGENT_URL,\
     WHATSAPP_BUSINESS_ACCOUNT_ID=2793719140803043,\
     WHATSAPP_PHONE_NUMBER_ID=981763218354581,\
     META_GRAPH_VERSION=v18.0 \
   --set-secrets \
-    DATABASE_URL=DATABASE_URL:latest,\
-    VERIFY_TOKEN=VERIFY_TOKEN:latest,\
-    WHATSAPP_ACCESS_TOKEN=WHATSAPP_ACCESS_TOKEN:latest,\
-    JWT_SECRET=JWT_SECRET:latest \
+    DATABASE_URL = REPLACE_WITH_DATABASE_URL,\
+    VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN,\
+    WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN,\
+    JWT_SECRET = REPLACE_WITH_JWT_SECRET \
   --project=lexia-platform-486621
 ```
 
@@ -151,7 +150,7 @@ lexia-postgres (Cloud SQL) - Já criado
 
 ```bash
 # Local
-export DATABASE_URL="postgresql://user:pass@localhost/lexia"
+export DATABASE_URL = REPLACE_WITH_DATABASE_URL
 pnpm db:push
 
 # Cloud SQL via Cloud Shell
@@ -180,7 +179,7 @@ gcloud sql connect lexia-postgres --user=lexia_user
 export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 
 # Database URL
-echo -n "postgresql://lexia_user:LexiaSecure2026!@#@localhost/lexia?host=/cloudsql/lexia-platform-486621:us-central1:lexia-postgres" | \
+echo -n "postgresql://lexia_user:REPLACE_WITH_PASSWORD@localhost/lexia?host=/cloudsql/lexia-platform-486621:southamerica-east1:lexia-postgres" | \
   gcloud secrets versions add DATABASE_URL --data-file=- --project=lexia-platform-486621
 
 # WhatsApp Token

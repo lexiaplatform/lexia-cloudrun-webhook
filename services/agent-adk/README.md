@@ -1,6 +1,5 @@
 # Léxia Agent ADK Service
 
-FastAPI service for AI agent processing using Google Gemini/Vertex AI.
 
 ## 🚀 Quick Start
 
@@ -60,7 +59,7 @@ docker run -p 8000:8000 \
 ```bash
 gcloud run deploy lexia-agent-adk \
   --source . \
-  --region us-central1 \
+  --region southamerica-east1 \
   --allow-unauthenticated \
   --set-secrets GOOGLE_CLOUD_PROJECT=GOOGLE_CLOUD_PROJECT:latest \
   --set-secrets GEMINI_MODEL=GEMINI_MODEL:latest
@@ -133,7 +132,6 @@ Get session details (for debugging).
 | HOST | 0.0.0.0 | Server host |
 | GOOGLE_CLOUD_PROJECT | lexia-platform-486621 | GCP project ID |
 | GOOGLE_CLOUD_LOCATION | global | GCP location |
-| GOOGLE_GENAI_USE_VERTEXAI | true | Use Vertex AI |
 | GEMINI_MODEL | gemini-2.5-pro | Gemini model to use |
 | AGENT_INSTRUCTION | (default) | Agent system instruction |
 | APP_NAME | lexia | Application name |
@@ -160,7 +158,6 @@ reply = response.json()["reply"]
 
 - **Framework**: FastAPI
 - **Server**: Uvicorn
-- **AI Model**: Google Gemini (via Vertex AI)
 - **Session Management**: In-memory (can be replaced with DB)
 - **Deployment**: Cloud Run
 

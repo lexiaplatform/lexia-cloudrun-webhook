@@ -3,7 +3,7 @@ import { processMessageWithAgent } from '../services/vertex-ai';
 
 const router = express.Router();
 
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'lexia_token_123';
+const VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN || 'lexia_token_123';
 
 // Webhook verification
 router.get('/webhook', (req: Request, res: Response) => {

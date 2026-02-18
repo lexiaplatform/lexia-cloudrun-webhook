@@ -13,15 +13,15 @@ GCP_PROJECT_ID = seu-projeto-gcp
 WIF_PROVIDER = projects/SEU-PROJECT-NUMBER/locations/global/workloadIdentityPools/github/providers/github
 WIF_SERVICE_ACCOUNT = github-actions@seu-projeto-gcp.iam.gserviceaccount.com
 
-REDIS_URL = redis://seu-redis-cloud:6379
-WHATSAPP_ACCESS_TOKEN = seu-token-whatsapp
+REDIS_URL = REPLACE_WITH_REDIS_URL
+WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN
 WHATSAPP_PHONE_NUMBER_ID = seu-phone-id
 WHATSAPP_BUSINESS_ACCOUNT_ID = seu-business-id
-VERIFY_TOKEN = seu-verify-token
-DATABASE_URL = mysql://user:password@seu-host/lexia
-ASAAS_API_KEY = sua-chave-asaas
-ASAAS_WEBHOOK_TOKEN = seu-token-asaas
-INFOSIMPLES_API_KEY = sua-chave-infosimples
+VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN
+DATABASE_URL = REPLACE_WITH_DATABASE_URL
+ASAAS_API_KEY = REPLACE_WITH_ASAAS_API_KEY
+ASAAS_WEBHOOK_TOKEN = REPLACE_WITH_ASAAS_WEBHOOK_TOKEN
+INFOSIMPLES_API_KEY = REPLACE_WITH_INFOSIMPLES_API_KEY
 ```
 
 ### 2️⃣ Fazer Push para GitHub
@@ -51,7 +51,7 @@ Quando terminar, você verá:
 ```
 ✅ Deployment successful!
 Service: lexia-webhook
-Region: us-central1
+Region: southamerica-east1
 URL: https://lexia-webhook-xxxxx.a.run.app
 ```
 
@@ -194,13 +194,13 @@ Step 4: Starting background worker...
 ### Erro: "Migration failed"
 **Solução:** Verifique se `DATABASE_URL` está correto. Teste localmente:
 ```bash
-DATABASE_URL="mysql://..." pnpm run db:push
+DATABASE_URL = REPLACE_WITH_DATABASE_URL pnpm run db:push
 ```
 
 ### Erro: "Webhook not responding"
 **Solução:** Verifique se o Cloud Run está rodando:
 ```bash
-gcloud run services describe lexia-webhook --region us-central1
+gcloud run services describe lexia-webhook --region southamerica-east1
 ```
 
 ---

@@ -1,6 +1,5 @@
 # Léxia Platform - Monorepo Completo
 
-Portal unificado com 3 serviços Cloud Run integrados: Webhook WhatsApp, Agent ADK (Vertex AI) e Portal (Frontend + Backend).
 
 ## 📦 Estrutura
 
@@ -24,7 +23,6 @@ lexia-platform-complete/
 - **Cloud Run**: `lexia-whatsapp-webhook`
 
 ### 2. **Agent ADK** (`services/agent-adk`)
-- Processamento com Gemini/Vertex AI
 - Gerenciamento de sessões
 - Integração com Cloud SQL
 - **Cloud Run**: `lexia-agent-adk`
@@ -40,7 +38,6 @@ lexia-platform-complete/
 ```
 WhatsApp User
     ↓
-Webhook (Node.js) → Agent ADK (Python) → Gemini/Vertex AI
     ↓
 Cloud SQL PostgreSQL
     ↓
@@ -53,9 +50,9 @@ Dashboard + Chat Interface
 
 ### Webhook
 ```bash
-AGENT_URL=https://lexia-agent-adk-xxxxx.run.app
-VERIFY_TOKEN=lexia_verify_token_secure_2026
-WHATSAPP_ACCESS_TOKEN=<seu_token>
+AGENT_URL = REPLACE_WITH_AGENT_URL
+VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN
+WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN
 WHATSAPP_PHONE_NUMBER_ID=981763218354581
 ```
 
@@ -65,13 +62,13 @@ GOOGLE_CLOUD_PROJECT=lexia-platform-486621
 GOOGLE_CLOUD_LOCATION=global
 GOOGLE_GENAI_USE_VERTEXAI=true
 GEMINI_MODEL=gemini-2.5-pro
-DATABASE_URL=postgresql://...
+DATABASE_URL = REPLACE_WITH_DATABASE_URL
 ```
 
 ### Portal
 ```bash
-DATABASE_URL=postgresql://...
-AGENT_URL=https://lexia-agent-adk-xxxxx.run.app
+DATABASE_URL = REPLACE_WITH_DATABASE_URL
+AGENT_URL = REPLACE_WITH_AGENT_URL
 WHATSAPP_BUSINESS_ACCOUNT_ID=2793719140803043
 WHATSAPP_PHONE_NUMBER_ID=981763218354581
 ```
@@ -116,7 +113,7 @@ gcloud run deploy lexia-agent-adk \
 gcloud run deploy lexia-platform \
   --source services/portal \
   --region southamerica-east1 \
-  --add-cloudsql-instances lexia-platform-486621:us-central1:lexia-postgres
+  --add-cloudsql-instances lexia-platform-486621:southamerica-east1:lexia-postgres
 ```
 
 ## 📚 Documentação

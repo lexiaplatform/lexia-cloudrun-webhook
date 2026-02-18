@@ -140,8 +140,8 @@ const logger = new WebhookLogger();
 app.use(express.json());
 
 // Configuração de variáveis de ambiente
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "lexia_token_123";
-const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || "";
+const VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN || "lexia_token_123";
+const WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN || "";
 const WHATSAPP_BUSINESS_ACCOUNT_ID =
   process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "";
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
@@ -343,7 +343,6 @@ async function handleIncomingMessage(message: Message, metadata: WebhookValue["m
           from: message.from,
           body: message.text.body,
         });
-        // TODO: Integrar com agentes Vertex AI para processar o texto
       }
       break;
 
@@ -493,7 +492,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     logger.info(`🚀 Webhook server started`, {
       port: PORT,
       environment: NODE_ENV,
-      verifyToken: VERIFY_TOKEN === "lexia_token_123" ? "default" : "custom",
+      verifyToken: VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN "lexia_token_123" ? "default" : "custom",
     });
 
     logger.info("📋 Configuration", {

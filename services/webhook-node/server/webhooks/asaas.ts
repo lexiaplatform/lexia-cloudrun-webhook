@@ -1,6 +1,8 @@
 import express, { Request, Response } from "express";
 import axios from "axios";
 import { getDb } from "../db";
+import { getInfosimplesService } from "../services/infosimples";
+import { getConversation } from "../db_messages";
 
 /**
  * Asaas Webhook Handler
@@ -146,8 +148,22 @@ async function handlePaymentEvent(event: AsaasWebhookEvent) {
       };
     }
 
-    // Aqui você pode adicionar lógica para processar o pagamento
-    // Por exemplo, atualizar status no banco de dados
+    // 1. Tentar obter o CPF do cliente através da conversa
+    const sessionId = payment.customer.externalReference;
+    const phoneNumber = sessionId.replace("wa_id_", "");
+    const conversation = await getConversation(phoneNumber);
+    
+    // 2. Se tivermos o CPF (ou pudermos extrair), rodar InfoSimples
+    // Nota: Em um cenário real, o CPF estaria salvo no banco de dados do Lead/Conversation
+    // Aqui simulamos a chamada se o CPF estivesse disponível
+    logger.info("🔍 Iniciando consultas InfoSimples pós-pagamento", { sessionId });
+    
+    // TODO: Recuperar CPF real do banco de dados
+    // const cpf = conversation?.metadata?.cpf; 
+    // if (cpf) {
+    //   const infosimples = getInfosimplesService();
+    //   await infosimples.queryCPF(cpf);
+    // }
 
     logger.info("✅ Evento de pagamento processado com sucesso", {
       paymentId: payment.id,

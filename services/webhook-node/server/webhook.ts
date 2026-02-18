@@ -6,6 +6,7 @@ import {
   upsertConversation,
   saveWebhookLog,
 } from "./db_messages";
+import { agentService } from "./services/agent";
 
 /**
  * WhatsApp Webhook Server
@@ -17,10 +18,7 @@ import {
 // CONFIGURAÇÃO E TIPOS
 // ============================================================================
 
-// Agent ADK Configuration
-// AGENT_URL should be the base URL of the agent service (e.g., https://lexia-agent-adk-xxxxx.run.app)
-const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
-const AGENT_CHAT_ENDPOINT = `${AGENT_URL}/chat`; // Endpoint is appended here
+// Agent ADK Configuration - Now using integrated agentService
 
 interface Message {
   from: string;
@@ -425,33 +423,18 @@ async function processTextMessageWithAgent(
   metadata: WebhookValue["metadata"]
 ) {
   try {
-    // Usar wa_id (phone number) como session_id
     const sessionId = `wa_id_${message.from}`;
     const userMessage = message.text?.body || "";
 
-    logger.info("🤖 Calling Agent ADK", {
+    logger.info("🤖 Calling Integrated Agent", {
       sessionId,
       userMessage,
-      agentUrl: AGENT_CHAT_ENDPOINT,
     });
 
-    // Chamar endpoint /chat do agente
-    const agentResponse = await axios.post(
-      AGENT_CHAT_ENDPOINT,
-      {
-        session_id: sessionId,
-        text: userMessage,
-        user_id: message.from,
-        timestamp: message.timestamp,
-      },
-      {
-        timeout: 30000, // 30 segundos timeout
-      }
-    );
+    // Chamar o AgentService diretamente em vez de fazer uma requisição HTTP externa
+    const agentReply = await agentService.processMessage(sessionId, userMessage, message.from);
 
-    const agentReply = agentResponse.data?.reply || "Desculpe, não consegui processar sua mensagem.";
-
-    logger.info("✅ Agent response received", {
+    logger.info("✅ Agent response generated", {
       sessionId,
       reply: agentReply,
     });
@@ -464,10 +447,6 @@ async function processTextMessageWithAgent(
         to: message.from,
         reply: agentReply,
       });
-    } else {
-      logger.warn("Failed to send agent reply to WhatsApp", {
-        to: message.from,
-      });
     }
   } catch (error) {
     logger.error("Error processing message with agent", {
@@ -475,7 +454,6 @@ async function processTextMessageWithAgent(
       from: message.from,
     });
 
-    // Enviar mensagem de erro ao usuário
     const errorMessage = "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.";
     await sendWhatsAppMessage(message.from, errorMessage);
   }

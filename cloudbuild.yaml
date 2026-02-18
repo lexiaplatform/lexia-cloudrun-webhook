@@ -1,0 +1,78 @@
+# Cloud Build configuration for automatic deployment
+# This file tells Google Cloud Build how to build and deploy the Léxia webhook
+
+steps:
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/lexia-webhook:$SHORT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/lexia-webhook:latest'
+      - '.'
+    dir: 'services/webhook-node'
+
+  # Step 2: Push image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/lexia-webhook:$SHORT_SHA'
+    dir: 'services/webhook-node'
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gke-deploy'
+    args:
+      - 'run'
+      - '-f=.'
+      - '-i'
+      - 'gcr.io/$PROJECT_ID/lexia-webhook:$SHORT_SHA'
+      - '-l'
+      - 'gcr.io/$PROJECT_ID/lexia-webhook:latest'
+      - '-o'
+      - '/workspace/output'
+
+  # Step 4: Deploy using gcloud
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'lexia-webhook'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/lexia-webhook:$SHORT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '512Mi'
+      - '--timeout'
+      - '3600'
+      - '--set-env-vars'
+      - 'REDIS_URL=${_REDIS_URL},WHATSAPP_ACCESS_TOKEN=${_WHATSAPP_ACCESS_TOKEN},WHATSAPP_PHONE_NUMBER_ID=${_WHATSAPP_PHONE_NUMBER_ID},WHATSAPP_BUSINESS_ACCOUNT_ID=${_WHATSAPP_BUSINESS_ACCOUNT_ID},VERIFY_TOKEN=${_VERIFY_TOKEN},DATABASE_URL=${_DATABASE_URL},ASAAS_API_KEY=${_ASAAS_API_KEY},ASAAS_WEBHOOK_TOKEN=${_ASAAS_WEBHOOK_TOKEN},INFOSIMPLES_API_KEY=${_INFOSIMPLES_API_KEY}'
+
+# Substitutions (variáveis que você precisa configurar no Cloud Build)
+substitutions:
+  _REDIS_URL: 'redis://redis-cloud-url:6379'
+  _WHATSAPP_ACCESS_TOKEN: 'seu-token'
+  _WHATSAPP_PHONE_NUMBER_ID: 'seu-id'
+  _WHATSAPP_BUSINESS_ACCOUNT_ID: 'seu-id'
+  _VERIFY_TOKEN: 'seu-token'
+  _DATABASE_URL: 'mysql://user:password@host/lexia'
+  _ASAAS_API_KEY: 'seu-key'
+  _ASAAS_WEBHOOK_TOKEN: 'seu-token'
+  _INFOSIMPLES_API_KEY: 'seu-key'
+
+# Configurações do build
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
+# Timeout de 30 minutos
+timeout: '1800s'
+
+# Imagens que serão criadas
+images:
+  - 'gcr.io/$PROJECT_ID/lexia-webhook:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/lexia-webhook:latest'

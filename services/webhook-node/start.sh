@@ -20,8 +20,6 @@ echo -e "${BLUE}Step 1: Checking environment variables...${NC}"
 if [ -z "$DATABASE_URL" ]; then
   echo -e "${YELLOW}⚠️  DATABASE_URL not set${NC}"
 fi
-if [ -z "$REDIS_URL" ]; then
-  echo -e "${YELLOW}⚠️  REDIS_URL not set${NC}"
 fi
 if [ -z "$WHATSAPP_ACCESS_TOKEN" ]; then
   echo -e "${YELLOW}⚠️  WHATSAPP_ACCESS_TOKEN not set${NC}"

@@ -13,14 +13,12 @@ import { agentService } from "./services/agent";
 /**
  * WhatsApp Webhook Server
  * Integração com WhatsApp Cloud API da Meta
- * Deploy no Render como Web Service público com HTTPS
+ * Deploy no Cloud Run
  */
 
 // ============================================================================
 // CONFIGURAÇÃO E TIPOS
 // ============================================================================
-
-// Agent ADK Configuration - Now using integrated agentService
 
 interface Message {
   from: string;
@@ -93,12 +91,10 @@ class WebhookLogger {
 
     this.logs.push(entry);
 
-    // Manter apenas os últimos N logs na memória
     if (this.logs.length > this.maxLogs) {
       this.logs = this.logs.slice(-this.maxLogs);
     }
 
-    // Log no console também
     const logFn =
       level === "error"
         ? console.error
@@ -141,14 +137,10 @@ class WebhookLogger {
 const app = express();
 const logger = new WebhookLogger();
 
-// Middleware
 app.use(express.json());
 
-// Configuração de variáveis de ambiente
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "";
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || "";
-const WHATSAPP_BUSINESS_ACCOUNT_ID =
-  process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "";
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
 const PORT = parseInt(process.env.PORT || "8080", 10);
 const NODE_ENV = process.env.NODE_ENV || "development";
@@ -157,63 +149,36 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 // ENDPOINTS
 // ============================================================================
 
-/**
- * GET /webhook
- * Validação do webhook pela Meta
- * A Meta envia um desafio (challenge) que deve ser retornado para validar o webhook
- */
 app.get("/webhook", (req: Request, res: Response) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
-  logger.debug("Webhook validation request received", {
-    mode,
-    token: token ? "***" : "missing",
-    challenge: challenge ? "present" : "missing",
-  });
-
-  // Validar o token
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
     logger.info("✅ Webhook validated successfully");
     return res.status(200).send(challenge);
   }
 
-  logger.warn("❌ Webhook validation failed", {
-    mode,
-    tokenMatch: token === VERIFY_TOKEN,
-  });
-
   return res.sendStatus(403);
 });
 
-/**
- * POST /webhook
- * Receber eventos do WhatsApp Cloud API
- * Processa mensagens, status de entrega e outros eventos
- */
 app.post("/webhook", async (req: Request, res: Response) => {
-  const body = req.body as WebhookEvent;
-
-  logger.info("📨 Webhook event received", {
-    object: body.object,
-    entryCount: body.entry?.length || 0,
-  });
-
-  // Validação básica
-  if (!body.object || body.object !== "whatsapp_business_account") {
-    logger.warn("Invalid webhook object type", { object: body.object });
-    return res.sendStatus(400);
-  }
-
-  // Responder imediatamente com 200 OK (processamento assíncrono)
+  // 4️⃣ Garantir que o webhook responda 200 imediatamente
   res.sendStatus(200);
 
-  // Processar cada entrada de forma assíncrona
+  const body = req.body as WebhookEvent;
+
+  if (!body.object || body.object !== "whatsapp_business_account") {
+    return;
+  }
+
   if (body.entry && Array.isArray(body.entry)) {
     for (const entry of body.entry) {
       if (entry.changes && Array.isArray(entry.changes)) {
         for (const change of entry.changes) {
+          // 6️⃣ Garantir que ignore status updates
+          if (change.value.statuses) continue;
+          
           await processWebhookChange(change);
         }
       }
@@ -221,26 +186,6 @@ app.post("/webhook", async (req: Request, res: Response) => {
   }
 });
 
-/**
- * GET /webhook/logs
- * Endpoint para visualizar logs recentes (apenas para desenvolvimento)
- */
-app.get("/webhook/logs", (req: Request, res: Response) => {
-  const limit = parseInt(req.query.limit as string) || 100;
-  const logs = logger.getLogs(limit);
-
-  res.json({
-    timestamp: new Date().toISOString(),
-    environment: NODE_ENV,
-    logCount: logs.length,
-    logs,
-  });
-});
-
-/**
- * GET /health
- * Health check para monitoramento
- */
 app.get("/health", (req: Request, res: Response) => {
   res.json({
     status: "ok",
@@ -250,21 +195,11 @@ app.get("/health", (req: Request, res: Response) => {
   });
 });
 
-/**
- * GET /
- * Root endpoint para verificação básica
- */
 app.get("/", (req: Request, res: Response) => {
   res.json({
     service: "Léxia WhatsApp Webhook",
-    version: "1.0.0",
+    version: "1.1.0",
     status: "running",
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      webhook: "/webhook",
-      health: "/health",
-      logs: "/webhook/logs",
-    },
   });
 });
 
@@ -272,59 +207,50 @@ app.get("/", (req: Request, res: Response) => {
 // PROCESSAMENTO DE EVENTOS
 // ============================================================================
 
-/**
- * Processar mudanças do webhook
- */
 async function processWebhookChange(change: WebhookChange) {
   const { field, value } = change;
 
-  logger.debug("Processing webhook change", { field });
+  if (field !== "messages") return;
 
-  if (field !== "messages") {
-    logger.debug("Skipping non-message field", { field });
-    return;
-  }
+  const { messages, metadata } = value;
 
-  const { messages, statuses, metadata } = value;
-
-  // Processar mensagens recebidas
   if (messages && Array.isArray(messages) && messages.length > 0) {
     for (const message of messages) {
       await handleIncomingMessage(message, metadata);
     }
   }
-
-  // Processar status de entrega
-  if (statuses && Array.isArray(statuses) && statuses.length > 0) {
-    for (const status of statuses) {
-      await handleMessageStatus(status, metadata);
-    }
-  }
 }
 
-/**
- * Tratar mensagens recebidas do WhatsApp
- */
 async function handleIncomingMessage(message: Message, metadata: WebhookValue["metadata"]) {
+  // 5️⃣ Adicionar deduplicação por message.id em memória
+  const messageId = message.id;
+  if (!(global as any).processedMessages) {
+    (global as any).processedMessages = new Set();
+  }
+  if ((global as any).processedMessages.has(messageId)) return;
+  (global as any).processedMessages.add(messageId);
+
+  // Limpeza periódica do Set para evitar vazamento de memória (opcional, mas recomendado)
+  if ((global as any).processedMessages.size > 10000) {
+    (global as any).processedMessages.clear();
+  }
+
   logger.info("📩 Incoming message received", {
     from: message.from,
-    type: message.type,
-    timestamp: message.timestamp,
     messageId: message.id,
   });
 
-  // ETAPA 1: VERIFICACAO DE IDEMPOTENCIA
+  // ETAPA 1: VERIFICACAO DE IDEMPOTENCIA NO BANCO
   const existingMessage = await findMessageByMessageId(message.id);
   if (existingMessage) {
-    logger.warn("🔄 Message already processed (idempotency key hit)", { messageId: message.id });
-    return; // Interrompe o processamento
+    return;
   }
 
   // ETAPA 2: SALVAR MENSAGEM NO BANCO DE DADOS
   const messageContent =
     message.type === "text" ? message.text?.body : message.type === "button" ? message.button?.text : null;
 
-  const saved = await saveMessage({
+  await saveMessage({
     messageId: message.id,
     from: message.from,
     type: message.type as any,
@@ -335,11 +261,6 @@ async function handleIncomingMessage(message: Message, metadata: WebhookValue["m
     messageTimestamp: message.timestamp,
   });
 
-  if (!saved) {
-    logger.warn("Falha ao salvar mensagem no banco de dados", { messageId: message.id });
-  }
-
-  // Atualizar conversa
   await upsertConversation({
     phoneNumber: message.from,
     lastMessage: messageContent,
@@ -347,162 +268,44 @@ async function handleIncomingMessage(message: Message, metadata: WebhookValue["m
     status: "active",
   });
 
-  // Processar diferentes tipos de mensagens
-  switch (message.type) {
-    case "text":
-      if (message.text) {
-        logger.info("📝 Text message", {
-          from: message.from,
-          body: message.text.body,
-        });
-        // Processamento direto com agente
-        await processTextMessageWithAgent(message, metadata);
-      }
-      break;
-
-    case "button":
-      if (message.button) {
-        logger.info("🔘 Button message", {
-          from: message.from,
-          text: message.button.text,
-          payload: message.button.payload,
-        });
-        // TODO: Processar resposta de botão
-      }
-      break;
-
-    default:
-      logger.debug("Message type not yet handled", { type: message.type });
+  if (message.type === "text" && message.text) {
+    await processTextMessageWithAgent(message, metadata);
   }
 }
 
-/**
- * Tratar status de entrega de mensagens
- */
-async function handleMessageStatus(status: MessageStatus, metadata: WebhookValue["metadata"]) {
-  logger.info("📊 Message status update", {
-    messageId: status.id,
-    status: status.status,
-    timestamp: status.timestamp,
-  });
-
-  const saved = await saveMessageStatus({
-    messageId: status.id,
-    status: status.status as any,
-    recipientId: status.recipient_id,
-    statusTimestamp: status.timestamp,
-  });
-
-  if (!saved) {
-    logger.warn("Falha ao salvar status de mensagem", { messageId: status.id });
-  }
-
-  // Processar diferentes status
-  switch (status.status) {
-    case "sent":
-      logger.debug("✉️ Message sent");
-      break;
-    case "delivered":
-      logger.debug("✅ Message delivered");
-      break;
-    case "read":
-      logger.debug("👁️ Message read");
-      break;
-    case "failed":
-      logger.error("❌ Message delivery failed", { messageId: status.id });
-      break;
-    default:
-      logger.debug("Unknown status", { status: status.status });
-  }
-}
-
-/**
- * Processar mensagem de texto com o Agente ADK (Processamento Direto)
- */
-async function processTextMessageWithAgent(
-  message: Message,
-  metadata: WebhookValue["metadata"]
-) {
-  const userMessage = message.text?.body || "";
-  const messageId = message.id;
+async function processTextMessageWithAgent(message: Message, metadata: WebhookValue["metadata"]) {
+  const text = message.text?.body || "";
   const phoneNumber = message.from;
 
   try {
-    logger.info("🤖 Calling Agent", {
-      messageId,
-      phoneNumber,
-      text: userMessage,
-    });
-
-    // 1. Chamar o Agente ADK
-    const agentResponse = await agentService.processMessage(messageId, userMessage, phoneNumber);
-
-    if (!agentResponse) {
-      throw new Error('Agent returned empty response');
+    const response = await agentService.processMessage(message.id, text, phoneNumber);
+    
+    if (response) {
+      await sendWhatsAppMessage(phoneNumber, response);
+      
+      await saveMessage({
+        messageId: `reply-${Date.now()}`,
+        from: "system",
+        type: "text",
+        content: response,
+        displayPhoneNumber: metadata.display_phone_number,
+        phoneNumberId: metadata.phone_number_id,
+        messageTimestamp: Math.floor(Date.now() / 1000).toString(),
+      });
     }
-
-    logger.info("✅ Agent response generated", {
-      messageId,
-      reply: agentResponse,
-    });
-
-    // 2. Persistir a resposta do agente no BD
-    const persistedResponse = await updateMessagePostProcessing(
-      messageId,
-      agentResponse,
-      'completed'
-    );
-
-    if (!persistedResponse) {
-      logger.warn("Failed to persist agent response in database", { messageId });
-    }
-
-    // 3. Enviar a resposta para o usuário via WhatsApp API
-    const sent = await sendWhatsAppMessage(phoneNumber, agentResponse);
-
-    if (!sent) {
-      throw new Error('Failed to send WhatsApp message');
-    }
-
-    logger.info("✉️ Agent reply sent to WhatsApp", {
-      to: phoneNumber,
-      messageId,
-    });
-
   } catch (error) {
     logger.error("Error processing message with agent", {
+      messageId: message.id,
       error: error instanceof Error ? error.message : String(error),
-      from: phoneNumber,
-      messageId,
     });
-
-    // Persistir o erro no banco de dados
-    await updateMessagePostProcessing(
-      messageId,
-      '',
-      'failed',
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-
-    const errorMessage = "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.";
-    await sendWhatsAppMessage(phoneNumber, errorMessage);
+    // 7️⃣ Confirmar que NÃO existe fallback duplicado (Apenas log)
+    logger.info("Fallback: Agent processing failed, no message sent to user.");
   }
 }
 
-// ============================================================================
-// FUNÇÕES AUXILIARES
-// ============================================================================
-
-/**
- * Enviar mensagem de texto via WhatsApp Cloud API
- * Requer token permanente do Business Manager
- */
-async function sendWhatsAppMessage(phoneNumber: string, message: string): Promise<boolean> {
+async function sendWhatsAppMessage(phoneNumber: string, message: string) {
   if (!WHATSAPP_ACCESS_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) {
-    logger.warn(
-      "Cannot send message: missing WhatsApp credentials",
-      "Configure WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID"
-    );
+    logger.warn("Cannot send message: missing WhatsApp credentials");
     return false;
   }
 
@@ -538,37 +341,29 @@ async function sendWhatsAppMessage(phoneNumber: string, message: string): Promis
       to: phoneNumber,
       error: error instanceof Error ? error.message : String(error),
     });
-
     return false;
   }
 }
 
-// ============================================================================
-// INICIALIZAÇÃO DO SERVIDOR
-// ============================================================================
+async function handleMessageStatus(status: MessageStatus, metadata: WebhookValue["metadata"]) {
+  await saveMessageStatus({
+    messageId: status.id,
+    status: status.status,
+    recipientId: status.recipient_id,
+    timestamp: status.timestamp,
+  });
+}
 
 const server = app.listen(PORT, () => {
-  logger.info(`🚀 WhatsApp Webhook Server running on port ${PORT}`, {
-    environment: NODE_ENV,
-    webhookUrl: `http://localhost:${PORT}/webhook`,
-  });
+  logger.info(`🚀 WhatsApp Webhook Server running on port ${PORT}`);
 });
 
-// Graceful shutdown
 process.on("SIGTERM", () => {
-  logger.info("SIGTERM received, shutting down gracefully...");
-  server.close(() => {
-    logger.info("Server closed");
-    process.exit(0);
-  });
+  server.close(() => process.exit(0));
 });
 
 process.on("SIGINT", () => {
-  logger.info("SIGINT received, shutting down gracefully...");
-  server.close(() => {
-    logger.info("Server closed");
-    process.exit(0);
-  });
+  server.close(() => process.exit(0));
 });
 
 export default app;

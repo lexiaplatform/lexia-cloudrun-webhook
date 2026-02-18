@@ -14,21 +14,28 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Adicionando permissões explicitamente para garantir que o token do GitHub tenha acesso
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Authenticate to Google Cloud
+        id: auth
         uses: google-github-actions/auth@v2
         with:
+          # O erro indicava que precisava de exatamente um dos dois. 
+          # Vamos garantir que credentials_json seja fornecido via secret.
           credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker for GCR
-        run: gcloud auth configure-docker
+        run: gcloud auth configure-docker gcr.io --quiet
 
       - name: Build Docker image
         run: |
@@ -52,15 +59,7 @@ jobs:
             --allow-unauthenticated \
             --memory 512Mi \
             --timeout 3600 \
-            --set-env-vars \
-            REDIS_URL=${{ secrets.REDIS_URL }},\
-            WHATSAPP_ACCESS_TOKEN=${{ secrets.WHATSAPP_ACCESS_TOKEN }},\
-            WHATSAPP_PHONE_NUMBER_ID=${{ secrets.WHATSAPP_PHONE_NUMBER_ID }},\
-            WHATSAPP_BUSINESS_ACCOUNT_ID=${{ secrets.WHATSAPP_BUSINESS_ACCOUNT_ID }},\
-            VERIFY_TOKEN=${{ secrets.VERIFY_TOKEN }},\
-            DATABASE_URL=${{ secrets.DATABASE_URL }},\
-            ASAAS_API_KEY=${{ secrets.ASAAS_API_KEY }},\
-            INFOSIMPLES_API_KEY=${{ secrets.INFOSIMPLES_API_KEY }}
+            --set-env-vars "REDIS_URL=${{ secrets.REDIS_URL }},WHATSAPP_ACCESS_TOKEN=${{ secrets.WHATSAPP_ACCESS_TOKEN }},WHATSAPP_PHONE_NUMBER_ID=${{ secrets.WHATSAPP_PHONE_NUMBER_ID }},WHATSAPP_BUSINESS_ACCOUNT_ID=${{ secrets.WHATSAPP_BUSINESS_ACCOUNT_ID }},VERIFY_TOKEN=${{ secrets.VERIFY_TOKEN }},DATABASE_URL=${{ secrets.DATABASE_URL }},ASAAS_API_KEY=${{ secrets.ASAAS_API_KEY }},INFOSIMPLES_API_KEY=${{ secrets.INFOSIMPLES_API_KEY }}"
 
       - name: Get Cloud Run URL
         run: |

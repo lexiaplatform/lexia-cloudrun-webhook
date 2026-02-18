@@ -6,9 +6,9 @@ import {
   upsertConversation,
   saveWebhookLog,
   findMessageByMessageId,
+  updateMessagePostProcessing,
 } from "./db_messages";
 import { agentService } from "./services/agent";
-import { agentQueue } from "./queue";
 
 /**
  * WhatsApp Webhook Server
@@ -145,8 +145,8 @@ const logger = new WebhookLogger();
 app.use(express.json());
 
 // Configuração de variáveis de ambiente
-const VERIFY_TOKEN = REPLACE_WITH_VERIFY_TOKEN || "";
-const WHATSAPP_ACCESS_TOKEN = REPLACE_WITH_WHATSAPP_ACCESS_TOKEN || "";
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "";
+const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || "";
 const WHATSAPP_BUSINESS_ACCOUNT_ID =
   process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || "";
 const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
@@ -355,7 +355,7 @@ async function handleIncomingMessage(message: Message, metadata: WebhookValue["m
           from: message.from,
           body: message.text.body,
         });
-        // Enfileirar processamento com agente
+        // Processamento direto com agente
         await processTextMessageWithAgent(message, metadata);
       }
       break;
@@ -374,12 +374,6 @@ async function handleIncomingMessage(message: Message, metadata: WebhookValue["m
     default:
       logger.debug("Message type not yet handled", { type: message.type });
   }
-
-  // Registrar metadados
-  logger.debug("Message metadata", {
-    phoneNumberId: metadata.phone_number_id,
-    displayPhoneNumber: metadata.display_phone_number,
-  });
 }
 
 /**
@@ -423,43 +417,75 @@ async function handleMessageStatus(status: MessageStatus, metadata: WebhookValue
 }
 
 /**
- * Processar mensagem de texto com o Agente ADK (Enfileirado)
+ * Processar mensagem de texto com o Agente ADK (Processamento Direto)
  */
 async function processTextMessageWithAgent(
   message: Message,
   metadata: WebhookValue["metadata"]
 ) {
+  const userMessage = message.text?.body || "";
+  const messageId = message.id;
+  const phoneNumber = message.from;
+
   try {
-    const userMessage = message.text?.body || "";
-
-    // Adicionar job à fila para processamento em background
-    const job = await agentQueue.add('process-message', {
-      messageId: message.id,
-      phoneNumber: message.from,
+    logger.info("🤖 Calling Agent", {
+      messageId,
+      phoneNumber,
       text: userMessage,
-    }, {
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 2000,
-      },
-      removeOnComplete: true,
-      removeOnFail: false,
     });
 
-    logger.info("✅ Message enqueued for processing", {
-      jobId: job.id,
-      messageId: message.id,
-      phoneNumber: message.from,
+    // 1. Chamar o Agente ADK
+    const agentResponse = await agentService.processMessage(messageId, userMessage, phoneNumber);
+
+    if (!agentResponse) {
+      throw new Error('Agent returned empty response');
+    }
+
+    logger.info("✅ Agent response generated", {
+      messageId,
+      reply: agentResponse,
     });
+
+    // 2. Persistir a resposta do agente no BD
+    const persistedResponse = await updateMessagePostProcessing(
+      messageId,
+      agentResponse,
+      'completed'
+    );
+
+    if (!persistedResponse) {
+      logger.warn("Failed to persist agent response in database", { messageId });
+    }
+
+    // 3. Enviar a resposta para o usuário via WhatsApp API
+    const sent = await sendWhatsAppMessage(phoneNumber, agentResponse);
+
+    if (!sent) {
+      throw new Error('Failed to send WhatsApp message');
+    }
+
+    logger.info("✉️ Agent reply sent to WhatsApp", {
+      to: phoneNumber,
+      messageId,
+    });
+
   } catch (error) {
-    logger.error("Error enqueueing message for processing", {
+    logger.error("Error processing message with agent", {
       error: error instanceof Error ? error.message : String(error),
-      from: message.from,
+      from: phoneNumber,
+      messageId,
     });
+
+    // Persistir o erro no banco de dados
+    await updateMessagePostProcessing(
+      messageId,
+      '',
+      'failed',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
 
     const errorMessage = "Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.";
-    await sendWhatsAppMessage(message.from, errorMessage);
+    await sendWhatsAppMessage(phoneNumber, errorMessage);
   }
 }
 

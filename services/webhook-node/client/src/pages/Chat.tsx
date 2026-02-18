@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Loader2, Send, Phone, X } from 'lucide-react';
-import { trpc } from '@/_core/trpc';
+import { trpc } from '@/lib/trpc';
 
 interface Message {
   id: string;

@@ -11,7 +11,7 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -40,6 +40,19 @@ AGENT_INSTRUCTION = os.getenv(
     "AGENT_INSTRUCTION",
     "Você é um atendente da Léxia Veículos. Responda de forma amigável e profissional."
 )
+DPK_SHARED_SECRET = os.getenv("DPK_SHARED_SECRET", "")
+
+# -----------------------------------------------------------------------------
+# HELPERS
+# -----------------------------------------------------------------------------
+def assert_secret(x_dpk_secret: Optional[str]):
+    if not DPK_SHARED_SECRET:
+        return
+    if not x_dpk_secret or x_dpk_secret != DPK_SHARED_SECRET:
+        raise HTTPException(status_code=401, detail="unauthorized")
+
+def now_iso() -> str:
+    return datetime.now().isoformat()
 
 # -----------------------------------------------------------------------------
 # MODELS
@@ -81,10 +94,6 @@ processed_message_ids = set()
 sessions: Dict[str, Dict[str, Any]] = {}
 
 
-def now_iso() -> str:
-    return datetime.now().isoformat()
-
-
 def get_session(session_id: str) -> Dict[str, Any]:
     if session_id not in sessions:
         sessions[session_id] = {
@@ -121,7 +130,9 @@ async def health():
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, x_dpk_secret: Optional[str] = Header(default=None)):
+    assert_secret(x_dpk_secret)
+    
     # validação mínima
     if not req.session_id or not req.text:
         raise HTTPException(status_code=400, detail="session_id and text are required")

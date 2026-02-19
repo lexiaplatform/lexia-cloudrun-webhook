@@ -8,11 +8,12 @@ import {
   InsertConversation,
 } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
+import { dpkChat } from "../services/dpk";
 
 /**
  * Chat Router
  * Gerencia todas as operações de chat interno
- * Integrado com banco de dados e webhooks
+ * Integrado com banco de dados e DPK Agent
  */
 
 export const chatRouter = router({
@@ -45,9 +46,10 @@ export const chatRouter = router({
           throw new Error("Conversation not found");
         }
 
-        // Salvar mensagem
+        // 1. Salvar mensagem do usuário
+        const userMessageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const messageData: InsertMessage = {
-          messageId: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          messageId: userMessageId,
           from: conversation[0].phoneNumber,
           type: "text",
           content: input.message,
@@ -56,24 +58,74 @@ export const chatRouter = router({
           messageTimestamp: new Date().toISOString(),
         };
 
-        const result = await db.insert(messages).values(messageData);
+        await db.insert(messages).values(messageData);
 
-        // Atualizar conversa
-        await db
-          .update(conversations)
-          .set({
-            lastMessage: input.message,
-            lastMessageAt: new Date(),
-            status: "active",
-          })
-          .where(eq(conversations.id, input.conversationId));
+        // 2. Buscar histórico recente (últimas 20)
+        const history = await db
+          .select()
+          .from(messages)
+          .where(eq(messages.from, conversation[0].phoneNumber))
+          .orderBy(desc(messages.createdAt))
+          .limit(20);
 
-        console.log(`[Chat] Message sent: ${messageData.messageId}`);
+        const context = history
+          .reverse()
+          .map((m) => `${m.from === conversation[0].phoneNumber ? "USER" : "AGENT"}: ${m.content || ""}`)
+          .join("\n");
+
+        // 3. Chamar DPK
+        const sessionId = `web:${ctx.user.id}:${input.conversationId}`;
+        const dpk = await dpkChat({
+          session_id: sessionId,
+          text: input.message,
+          message_id: userMessageId,
+          context,
+        });
+
+        const agentReply = (dpk.reply || "").trim();
+
+        // 4. Salvar resposta do agente se não for vazia
+        if (agentReply.length > 0) {
+          const agentMessageData: InsertMessage = {
+            messageId: `agent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            from: "agent",
+            type: "text",
+            content: agentReply,
+            displayPhoneNumber: "",
+            phoneNumberId: "",
+            messageTimestamp: new Date().toISOString(),
+          };
+
+          await db.insert(messages).values(agentMessageData);
+
+          // Atualizar conversa com a resposta do agente
+          await db
+            .update(conversations)
+            .set({
+              lastMessage: agentReply,
+              lastMessageAt: new Date(),
+              status: "active",
+            })
+            .where(eq(conversations.id, input.conversationId));
+        } else {
+          // Se não houver resposta do agente, apenas atualiza com a mensagem do usuário
+          await db
+            .update(conversations)
+            .set({
+              lastMessage: input.message,
+              lastMessageAt: new Date(),
+              status: "active",
+            })
+            .where(eq(conversations.id, input.conversationId));
+        }
+
+        console.log(`[Chat] Message processed: ${userMessageId}`);
 
         return {
           success: true,
-          messageId: messageData.messageId,
+          messageId: userMessageId,
           timestamp: new Date().toISOString(),
+          agentReply,
         };
       } catch (error) {
         console.error("[Chat] Error sending message:", error);

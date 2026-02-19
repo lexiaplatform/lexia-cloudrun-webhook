@@ -7,10 +7,14 @@
     "webhook:dev": "NODE_ENV=development tsx watch server/webhook.ts",
     "webhook:build": "esbuild server/webhook.ts --platform=node --bundle --format=esm --outdir=dist --external:drizzle-orm --external:drizzle-orm/mysql-core --external:drizzle-orm/mysql2",
     "webhook:start": "NODE_ENV=production node dist/webhook.js",
-    "dev": "npm run webhook:dev",
-    "build": "npm run webhook:build",
-    "start": "npm run webhook:start"
+    "dev": "pnpm run webhook:dev",
+    "build": "pnpm run webhook:build",
+    "start": "pnpm run webhook:start"
   },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.0.0",
   "dependencies": {
     "axios": "^1.6.8",
     "dotenv": "^16.4.5",

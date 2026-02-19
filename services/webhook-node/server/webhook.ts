@@ -278,9 +278,10 @@ async function processTextMessageWithAgent(message: Message, metadata: WebhookVa
   const phoneNumber = message.from;
 
   try {
-    const response = await agentService.processMessage(message.id, text, phoneNumber);
+    const sessionId = `wa:${phoneNumber}`;
+    const response = await agentService.processMessage(sessionId, text, phoneNumber, message.id);
     
-    if (response) {
+    if (response && response.trim().length > 0) {
       await sendWhatsAppMessage(phoneNumber, response);
       
       await saveMessage({
@@ -292,6 +293,8 @@ async function processTextMessageWithAgent(message: Message, metadata: WebhookVa
         phoneNumberId: metadata.phone_number_id,
         messageTimestamp: Math.floor(Date.now() / 1000).toString(),
       });
+    } else {
+      logger.info("[DPK] Empty reply (dedupe), skipping send");
     }
   } catch (error) {
     logger.error("Error processing message with agent", {

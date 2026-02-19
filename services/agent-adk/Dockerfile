@@ -28,7 +28,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
 
 # Set default port
-ENV PORT=8000
+ENV PORT=8080
 
 # Run application
-CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]

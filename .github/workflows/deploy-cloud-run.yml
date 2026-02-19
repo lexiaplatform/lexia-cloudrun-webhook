@@ -8,7 +8,7 @@ on:
 
 env:
   PROJECT_ID: lexia-platform-486621
-  REGION: us-central1
+  REGION: southamerica-east1
   SERVICE_NAME: lexia-webhook
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
           docker build \
             -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest \
-            -f Dockerfile \
+            -f services/webhook-node/Dockerfile \
             .
 
       - name: Push image to GCR

@@ -43,7 +43,12 @@ jobs:
           ls -la services/webhook-node/Dockerfile
 
       - name: Build Docker image
-        run: docker build -f services/webhook-node/Dockerfile -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest .
+        run: |
+          docker build \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest \
+            -f services/webhook-node/Dockerfile \
+            .
 
       - name: Push image to GCR
         run: |

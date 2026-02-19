@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "webhook:dev": "NODE_ENV=development tsx watch server/webhook.ts",
-    "webhook:build": "esbuild server/webhook.ts --platform=node --bundle --format=esm --outdir=dist",
+    "webhook:build": "esbuild server/webhook.ts --platform=node --bundle --format=esm --outdir=dist --external:drizzle-orm --external:drizzle-orm/mysql-core --external:drizzle-orm/mysql2",
     "webhook:start": "NODE_ENV=production node dist/webhook.js",
     "dev": "npm run webhook:dev",
     "build": "npm run webhook:build",

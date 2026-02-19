@@ -14,7 +14,6 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Adicionando permissões explicitamente para garantir que o token do GitHub tenha acesso
     permissions:
       contents: read
       id-token: write
@@ -27,8 +26,6 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          # O erro indicava que precisava de exatamente um dos dois. 
-          # Vamos garantir que credentials_json seja fornecido via secret.
           credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
       - name: Set up Cloud SDK
@@ -37,13 +34,16 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker gcr.io --quiet
 
-      - name: Build Docker image
+      - name: Debug paths
         run: |
-          docker build \
-            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest \
-            -f services/webhook-node/Dockerfile \
-            .
+          pwd
+          ls -la
+          ls -la services
+          ls -la services/webhook-node
+          ls -la services/webhook-node/Dockerfile
+
+      - name: Build Docker image
+        run: docker build -f services/webhook-node/Dockerfile -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest .
 
       - name: Push image to GCR
         run: |
